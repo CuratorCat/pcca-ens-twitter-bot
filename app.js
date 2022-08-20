@@ -48,26 +48,39 @@ const prepareTweet = async (eventData) => {
   const label = decoded[0].toLowerCase()
   const tokenId = ethers.BigNumber.from(decoded[1]).toString()
 
-  // media files in tweet
-  const medias = [
-    {
-      mediaUrl: useImgUrl(tokenId),
-      name: 'Cat#' + tokenId + ' ' + label + '.pcc.eth',
-    },
-  ]
-
-  // tweet message
-  const twMsg = useTweetTemplate(
-    tweetTemplate,
-    label,
-    tokenId,
-    eventData.data.transactionHash
-  )
-
-  // return prepared tweetData
-  return {
-    twMsg: twMsg,
-    medias: medias,
+  // check if dots in label
+  if (label.includes('.')) {
+    // ensMapper only supports 1 level subdomains
+    // dots in label create invalid subdomains
+    console.log('🔴 dot in label:', label)
+    const twMsg = useTweetTemplate(
+      invalidLabelTemplate,
+      label,
+      tokenId,
+      eventData.data.transactionHash
+    )
+    return {
+      twMsg: twMsg,
+      medias: [],
+    }
+  } else {
+    // good ens name
+    const medias = [
+      {
+        mediaUrl: useImgUrl(tokenId),
+        name: 'Cat#' + tokenId + ' ' + label + '.pcc.eth',
+      },
+    ]
+    const twMsg = useTweetTemplate(
+      goodLabelTemplate,
+      label,
+      tokenId,
+      eventData.data.transactionHash
+    )
+    return {
+      twMsg: twMsg,
+      medias: medias,
+    }
   }
 }
 
@@ -86,8 +99,13 @@ const useTweetTemplate = (tweetTemplate, label, tokenId, txHash) =>
     .replace('$$TX_HASH$$', txHash)
     .replace('$$PROFILE_LINK$$', 'https://pcc.im/' + label)
 
-const tweetTemplate = `🎉 @PurrnelopesCC 😺 Cat#$$ID$$ just got its ENS name: $$LABEL$$.pcc.eth
+const goodLabelTemplate = `🎉 @PurrnelopesCC 😺 Cat#$$ID$$ just got its ENS name: $$LABEL$$.pcc.eth
 See ENS purrfile 👉 $$PROFILE_LINK$$`
+
+const invalidLabelTemplate = `🔴 #ErrorAlert 😿
+@PurrnelopesCC Cat#$$ID$$ just got an invalid ENS name, please try to contact the owner to fix it
+label: $$LABEL$$
+tx: $$TX_HASH$$`
 
 const imgUrlTemplate =
   'https://raw.githubusercontent.com/CuratorCat/pcc-cats-jpg/main/w1000/$$ID$$.jpg'
