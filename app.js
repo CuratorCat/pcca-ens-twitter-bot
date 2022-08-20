@@ -17,7 +17,7 @@ const provider = new ethers.providers.AlchemyProvider(
 const contractAddr = process.env.ENS_MAPPER_CONTRACT
 const contract = new ethers.Contract(contractAddr, ensMapperAbi, provider)
 
-async function pccEnsBot() {
+const pccEnsBot = async () => {
   contract.on('RegisterSubdomain', (registrar, token_id, label, event) => {
     const eventData = {
       registrar: registrar,
@@ -29,33 +29,47 @@ async function pccEnsBot() {
     if (contractAddr.toLowerCase() !== eventData.data.address.toLowerCase()) {
       return
     }
-    console.log('^^meow~ 😺 in coming~')
-    // use txData from transaction
-    ;(async () => {
-      const txData = await getTxData(eventData.data.transactionHash)
-      const interface = new ethers.utils.Interface(ensMapperAbi)
-      const decoded = interface.decodeFunctionData('setDomain', txData.data)
-      const label = decoded[0].toLowerCase()
-      const tokenId = ethers.BigNumber.from(decoded[1]).toString()
-      const medias = [
-        {
-          mediaUrl: useImgUrl(tokenId),
-          name: 'Cat#' + tokenId + ' ' + label + '.pcc.eth',
-        },
-      ]
-      const twMsg = useTweetTemplate(
-        tweetTemplate,
-        label,
-        tokenId,
-        eventData.data.transactionHash
-      )
-      const args = [twitterClient, twMsg, medias]
+    console.log('^^meow~ 😺 incoming~')
+    // prepare tweetData and tweet
+    prepareTweet(eventData).then(function (tweetData) {
+      const args = [twitterClient, tweetData.twMsg, tweetData.medias]
       tweet(...args)
-    })()
+    })
   })
 }
 console.log('✅ up')
 pccEnsBot()
+
+const prepareTweet = async (eventData) => {
+  // get txData
+  const txData = await getTxData(eventData.data.transactionHash)
+  const interface = new ethers.utils.Interface(ensMapperAbi)
+  const decoded = interface.decodeFunctionData('setDomain', txData.data)
+  const label = decoded[0].toLowerCase()
+  const tokenId = ethers.BigNumber.from(decoded[1]).toString()
+
+  // media files in tweet
+  const medias = [
+    {
+      mediaUrl: useImgUrl(tokenId),
+      name: 'Cat#' + tokenId + ' ' + label + '.pcc.eth',
+    },
+  ]
+
+  // tweet message
+  const twMsg = useTweetTemplate(
+    tweetTemplate,
+    label,
+    tokenId,
+    eventData.data.transactionHash
+  )
+
+  // return prepared tweetData
+  return {
+    twMsg: twMsg,
+    medias: medias,
+  }
+}
 
 const getTxData = async (tx) => {
   try {
